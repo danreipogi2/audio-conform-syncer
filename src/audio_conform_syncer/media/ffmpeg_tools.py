@@ -15,6 +15,25 @@ class FFmpegError(RuntimeError):
     """Raised when FFmpeg fails or is not available."""
 
 
+def ffmpeg_version() -> str:
+    executable = shutil.which("ffmpeg")
+    if executable is None:
+        raise FFmpegError("FFmpeg was not found on PATH")
+
+    completed = subprocess.run(
+        [executable, "-version"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or completed.stdout.strip()
+        raise FFmpegError(f"FFmpeg version check failed: {detail}")
+
+    first_line = completed.stdout.splitlines()[0] if completed.stdout else "ffmpeg"
+    return first_line
+
+
 def extract_reference_audio(video_path: Path, output_wav: Path, sample_rate: int) -> None:
     output_wav.parent.mkdir(parents=True, exist_ok=True)
     _run_ffmpeg(

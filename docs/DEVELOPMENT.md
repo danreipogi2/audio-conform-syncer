@@ -54,6 +54,20 @@ The script creates clean source WAVs, a guide WAV, and an `edited_cut.mp4` when 
 
 Lower thresholds find more candidates and may create false positives. Higher thresholds produce cleaner but sparser reports.
 
+## Diagnostics
+
+Check the local environment:
+
+```powershell
+audio-conform-syncer --doctor
+```
+
+Validate inputs without extracting or matching:
+
+```powershell
+audio-conform-syncer --video edited_cut.mp4 --audio-dir clean_audio --dry-run
+```
+
 ## Release Notes
 
 Before tagging a release:

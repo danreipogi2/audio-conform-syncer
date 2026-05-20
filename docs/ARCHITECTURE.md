@@ -51,3 +51,5 @@ Keeping these boundaries small makes future XML export work easier without mixin
 - Add stronger fingerprints or multi-stage scoring inside `core/`.
 - Add Premiere and Resolve serializers under `exports/`.
 - Add a desktop review layer that consumes the JSON report instead of duplicating matcher logic.
+
+See [REPORT_SCHEMA.md](REPORT_SCHEMA.md) for the report contract that future exporters should consume.

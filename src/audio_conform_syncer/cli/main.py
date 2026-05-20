@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import argparse
 import sys
+from dataclasses import asdict
 from pathlib import Path
 
+import numpy as np
+
 from audio_conform_syncer import __version__
-from audio_conform_syncer.core.matcher import MatchSettings, run_conform
+from audio_conform_syncer.core.matcher import MatchSettings, discover_audio_files, run_conform
 from audio_conform_syncer.exports.reporting import write_markdown_report
+from audio_conform_syncer.media.ffmpeg_tools import FFmpegError, ffmpeg_version
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -15,8 +19,18 @@ def build_parser() -> argparse.ArgumentParser:
         description="Match a flattened edited video guide track against clean source audio files.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
-    parser.add_argument("--video", required=True, help="Path to the flattened edited video.")
-    parser.add_argument("--audio-dir", required=True, help="Folder containing clean source audio files.")
+    parser.add_argument("--video", help="Path to the flattened edited video.")
+    parser.add_argument("--audio-dir", help="Folder containing clean source audio files.")
+    parser.add_argument(
+        "--doctor",
+        action="store_true",
+        help="Check local runtime dependencies and exit.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate inputs and settings without extracting or matching media.",
+    )
     parser.add_argument(
         "--output",
         default="sync_report.json",
@@ -68,6 +82,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
+    if args.doctor:
+        return run_doctor()
+
+    if not args.video or not args.audio_dir:
+        parser.error("--video and --audio-dir are required unless --doctor is used")
+
     settings = MatchSettings(
         sample_rate=args.sample_rate,
         window_seconds=args.window_seconds,
@@ -75,6 +95,9 @@ def main(argv: list[str] | None = None) -> int:
         threshold=args.threshold,
         merge_gap_seconds=args.merge_gap_seconds,
     )
+
+    if args.dry_run:
+        return run_dry_run(Path(args.video), Path(args.audio_dir), settings)
 
     try:
         report = run_conform(
@@ -95,4 +118,55 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Wrote Markdown summary: {Path(args.markdown_output)}")
     print(f"Matches: {len(report.matches)}")
     print(f"Unmatched regions: {len(report.unmatched_regions)}")
+    return 0
+
+
+def run_doctor() -> int:
+    checks: list[tuple[str, bool, str]] = [
+        ("Audio Conform Syncer", True, __version__),
+        ("Python", True, sys.version.split()[0]),
+        ("NumPy", True, np.__version__),
+    ]
+
+    try:
+        checks.append(("FFmpeg", True, ffmpeg_version()))
+    except FFmpegError as error:
+        checks.append(("FFmpeg", False, str(error)))
+
+    for name, ok, detail in checks:
+        status = "ok" if ok else "missing"
+        print(f"{status:7} {name}: {detail}")
+
+    return 0 if all(ok for _, ok, _ in checks) else 1
+
+
+def run_dry_run(video_path: Path, audio_dir: Path, settings: MatchSettings) -> int:
+    try:
+        version = ffmpeg_version()
+    except FFmpegError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+
+    video_path = video_path.expanduser().resolve()
+    audio_dir = audio_dir.expanduser().resolve()
+    if not video_path.exists():
+        print(f"error: video not found: {video_path}", file=sys.stderr)
+        return 1
+    if not audio_dir.exists() or not audio_dir.is_dir():
+        print(f"error: audio directory not found: {audio_dir}", file=sys.stderr)
+        return 1
+
+    source_files = discover_audio_files(audio_dir)
+    if not source_files:
+        print(f"error: no supported audio files found in: {audio_dir}", file=sys.stderr)
+        return 1
+
+    print("Dry run passed.")
+    print(f"FFmpeg: {version}")
+    print(f"Video: {video_path}")
+    print(f"Audio directory: {audio_dir}")
+    print(f"Source audio files: {len(source_files)}")
+    print("Settings:")
+    for key, value in asdict(settings).items():
+        print(f"  {key}: {value}")
     return 0

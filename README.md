@@ -84,6 +84,18 @@ audio-conform-syncer --help
 
 The defaults are intentionally conservative for MVP use. If the report is too sparse, lower `--threshold` slightly. If it is too noisy, raise it.
 
+Check the local environment:
+
+```powershell
+audio-conform-syncer --doctor
+```
+
+Validate inputs without extracting or matching media:
+
+```powershell
+audio-conform-syncer --video edited_cut.mp4 --audio-dir clean_audio --dry-run
+```
+
 ## Quick Demo
 
 Generate tiny synthetic media for a local smoke test:
@@ -115,6 +127,7 @@ audio-conform-syncer/
     ARCHITECTURE.md
     DEVELOPMENT.md
     PROCESS.md
+    REPORT_SCHEMA.md
     ROADMAP.md
   src/
     audio_conform_syncer/
