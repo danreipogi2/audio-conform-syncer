@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Local config
+.env
+.env.*
+!.env.example
+
+# Tool output
+.audio-conform-syncer/
+demo_media/
+sync_report.json
+sync_report.md
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

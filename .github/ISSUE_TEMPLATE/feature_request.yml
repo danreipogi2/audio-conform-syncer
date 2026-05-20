@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest a focused improvement or roadmap item.
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What should the user be able to do?
+    validations:
+      required: true
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Workflow context
+      description: Where does this fit in the conform process?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Matching engine
+        - CLI
+        - Reports
+        - Premiere XML export
+        - DaVinci Resolve XML export
+        - Review UI
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Keep roadmap-only features clearly marked as not shipped.

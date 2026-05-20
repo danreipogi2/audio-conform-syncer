@@ -1,0 +1,48 @@
+name: Bug report
+description: Report a reproducible problem in Audio Conform Syncer.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping tighten the sync engine. Keep private client media and sensitive paths out of public issues.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What went wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the exact command and relevant settings.
+      placeholder: |
+        1. Run ...
+        2. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "3.12.4"
+  - type: input
+    id: ffmpeg
+    attributes:
+      label: FFmpeg version
+      placeholder: "ffmpeg -version"
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional context
+      description: Logs, report snippets, or media details that are safe to share.
