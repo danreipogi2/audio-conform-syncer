@@ -99,6 +99,35 @@ def decode_audio_to_wav(input_path: Path, output_wav: Path, sample_rate: int) ->
     )
 
 
+def mux_video_with_audio(
+    video_path: Path,
+    audio_path: Path,
+    output_path: Path,
+    copy_video: bool = True,
+) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    video_args = ["-c:v", "copy"] if copy_video else ["-c:v", "libx264", "-preset", "veryfast"]
+    _run_ffmpeg(
+        [
+            "-y",
+            "-i",
+            str(video_path),
+            "-i",
+            str(audio_path),
+            "-map",
+            "0:v:0",
+            "-map",
+            "1:a:0",
+            *video_args,
+            "-c:a",
+            "aac",
+            "-shortest",
+            str(output_path),
+        ],
+        action=f"muxing synced audio into {video_path}",
+    )
+
+
 def read_wav_mono(path: Path) -> tuple[np.ndarray, int]:
     with wave.open(str(path), "rb") as wav_file:
         channels = wav_file.getnchannels()
@@ -111,6 +140,18 @@ def read_wav_mono(path: Path) -> tuple[np.ndarray, int]:
     if channels > 1:
         samples = samples.reshape(-1, channels).mean(axis=1)
     return samples.astype(np.float32), sample_rate
+
+
+def write_wav_mono(path: Path, samples: np.ndarray, sample_rate: int) -> None:
+    mono = to_float_mono(samples)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    clipped = np.clip(mono, -1.0, 1.0)
+    pcm = (clipped * 32767.0).astype("<i2")
+    with wave.open(str(path), "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(pcm.tobytes())
 
 
 def _run_ffmpeg(args: list[str], action: str = "running FFmpeg") -> None:

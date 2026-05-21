@@ -102,3 +102,5 @@ Diagnostics are human-readable notes that explain report quality concerns or set
 ## Exporter Notes
 
 Future Premiere and Resolve exporters should consume this report instead of calling the matcher directly. That keeps export logic deterministic and makes review workflows possible before timeline files are generated.
+
+The local app now converts this report into a separate timeline layer model before rendering the browser timeline or writing XML. The report remains the stable engine output; the timeline model is an export/review projection that can evolve without breaking report consumers.

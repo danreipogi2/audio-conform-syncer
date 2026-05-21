@@ -5,22 +5,24 @@ Audio Conform Syncer is currently a complete MVP alpha for local report-based au
 ## Now
 
 - Keep the CLI stable and boring.
+- Keep the drag-and-drop app stable for one-video plus one-or-more-audio workflows.
+- Keep the timeline layer view and XML export actions stable.
 - Run manual QA on short real edits and collect false-positive cases.
 - Keep reports structured and reviewable before export tooling.
 - Tune confidence and ambiguity thresholds from real media.
 
 ## Next
 
-- Add exporter preflight checks for Premiere and Resolve assumptions.
+- Add exporter preflight checks for Premiere and Resolve import assumptions.
+- Improve the timeline review view with richer waveform previews and zoom.
 - Expand fixture coverage for repeated dialogue, music beds, and noisy guide tracks.
 - Add stronger multi-stage scoring beyond normalized correlation.
-- Add a small report viewer for manual review.
+- Improve synced-video export quality and multi-track handling.
 
 ## Later
 
-- Premiere-compatible XML export.
-- DaVinci Resolve XML export.
-- Review UI or desktop app for inspecting matches.
+- Round-trip verification against real Premiere and Resolve projects.
+- Desktop packaging.
 - Batch workflows for multiple edited cuts.
 
 ## Non-Goals For The MVP

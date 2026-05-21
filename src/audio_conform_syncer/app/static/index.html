@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Audio Conform Syncer</title>
+    <link rel="stylesheet" href="/static/app.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Audio Conform Syncer</p>
+          <h1>Sync Workspace</h1>
+        </div>
+        <div class="system-status" id="systemStatus">Checking FFmpeg...</div>
+      </header>
+
+      <section class="workspace-grid" aria-label="Sync workspace">
+        <div class="intake-panel">
+          <div id="dropZone" class="drop-zone" tabindex="0">
+            <div class="drop-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14" />
+              </svg>
+            </div>
+            <h2>Drop media</h2>
+            <p>Files or folders</p>
+            <div class="drop-actions">
+              <button type="button" id="chooseFiles">Add files</button>
+              <button type="button" id="chooseFolder">Add folder</button>
+            </div>
+            <input id="fileInput" type="file" multiple hidden>
+            <input id="folderInput" type="file" multiple webkitdirectory hidden>
+          </div>
+
+          <div class="media-columns" aria-live="polite">
+            <section class="media-column">
+              <div class="column-head">
+                <span>Video</span>
+                <strong id="videoCount">0</strong>
+              </div>
+              <div id="videoList" class="media-list"></div>
+            </section>
+            <section class="media-column">
+              <div class="column-head">
+                <span>Audio</span>
+                <strong id="audioCount">0</strong>
+              </div>
+              <div id="audioList" class="media-list"></div>
+            </section>
+            <section class="media-column">
+              <div class="column-head">
+                <span>Unsupported</span>
+                <strong id="unsupportedCount">0</strong>
+              </div>
+              <div id="unsupportedList" class="media-list"></div>
+            </section>
+          </div>
+        </div>
+
+        <aside class="control-panel">
+          <section class="settings">
+            <h2>Sync Settings</h2>
+            <label>
+              <span>Threshold</span>
+              <input id="threshold" type="range" min="0.1" max="0.95" step="0.01" value="0.5">
+              <output id="thresholdValue">0.50</output>
+            </label>
+            <label>
+              <span>Window</span>
+              <input id="windowSeconds" type="number" min="0.25" step="0.25" value="1">
+            </label>
+            <label>
+              <span>Hop</span>
+              <input id="hopSeconds" type="number" min="0.1" step="0.1" value="0.5">
+            </label>
+            <label>
+              <span>Margin</span>
+              <input id="scoreMargin" type="number" min="0" step="0.01" value="0">
+            </label>
+          </section>
+
+          <button type="button" id="syncButton" class="primary-action" disabled>
+            Synchronize
+          </button>
+          <button type="button" id="clearButton" class="secondary-action">
+            Clear
+          </button>
+
+          <div id="jobStatus" class="job-status" role="status">Ready</div>
+        </aside>
+      </section>
+
+      <section id="resultsPanel" class="results-panel" hidden>
+        <div class="results-head">
+          <div>
+            <p class="eyebrow">Review</p>
+            <h2>Sync Results</h2>
+          </div>
+          <div class="output-actions">
+            <a id="premiereXmlLink" href="#" class="output-link primary-export" hidden>Export Premiere XML</a>
+            <button id="premiereXmlDisabled" type="button" class="output-link" disabled hidden>
+              Export Premiere XML
+            </button>
+            <a id="resolveXmlLink" href="#" class="output-link primary-export" hidden>Export DaVinci Resolve XML</a>
+            <button id="resolveXmlDisabled" type="button" class="output-link" disabled hidden>
+              Export DaVinci Resolve XML
+            </button>
+            <a id="videoOutputLink" href="#" class="output-link" hidden>Synced MP4</a>
+            <a id="jsonOutputLink" href="#" class="output-link" hidden>JSON</a>
+            <a id="markdownOutputLink" href="#" class="output-link" hidden>Markdown</a>
+          </div>
+        </div>
+
+        <div class="metrics">
+          <div>
+            <span>Coverage</span>
+            <strong id="coverageMetric">0%</strong>
+          </div>
+          <div>
+            <span>Matches</span>
+            <strong id="matchesMetric">0</strong>
+          </div>
+          <div>
+            <span>Ambiguous</span>
+            <strong id="ambiguousMetric">0</strong>
+          </div>
+        </div>
+
+        <div id="diagnostics" class="diagnostics"></div>
+
+        <section class="timeline-panel" aria-label="Timeline layers">
+          <div class="timeline-toolbar">
+            <div>
+              <h3>Timeline Layers</h3>
+              <p id="timelineDuration">00:00.000</p>
+            </div>
+            <div id="timelineWarnings" class="timeline-warnings"></div>
+          </div>
+          <div class="timeline-scroll">
+            <div id="timelineScale" class="timeline-scale"></div>
+            <div id="timelineLayers" class="timeline-layers"></div>
+          </div>
+        </section>
+
+        <div class="match-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Reference</th>
+                <th>Source</th>
+                <th>Score</th>
+                <th>Confidence</th>
+              </tr>
+            </thead>
+            <tbody id="matchesBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

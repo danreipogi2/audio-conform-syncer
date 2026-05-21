@@ -37,6 +37,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Validate inputs and settings without extracting or matching media.",
     )
     parser.add_argument(
+        "--app",
+        action="store_true",
+        help="Launch the local drag-and-drop sync app.",
+    )
+    parser.add_argument(
+        "--app-host",
+        default="127.0.0.1",
+        help="Host for the local app. Defaults to 127.0.0.1.",
+    )
+    parser.add_argument(
+        "--app-port",
+        type=int,
+        default=8765,
+        help="Port for the local app. Defaults to 8765.",
+    )
+    parser.add_argument(
         "--output",
         default="sync_report.json",
         help="Path for the JSON sync report. Defaults to sync_report.json.",
@@ -99,8 +115,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.doctor:
         return run_doctor()
 
+    if args.app:
+        from audio_conform_syncer.app.server import run_app
+
+        return run_app(host=args.app_host, port=args.app_port)
+
     if not args.video or not args.audio_dir:
-        parser.error("--video and --audio-dir are required unless --doctor is used")
+        parser.error("--video and --audio-dir are required unless --doctor or --app is used")
 
     settings = MatchSettings(
         sample_rate=args.sample_rate,

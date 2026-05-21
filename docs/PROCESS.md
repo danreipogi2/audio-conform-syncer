@@ -43,13 +43,21 @@ A change is done when:
 - Expand fixture coverage using real-world repeated dialogue and music cases.
 - Tune confidence bands and score-margin thresholds from real media.
 
-### Milestone 3: Export Foundation
+### Milestone 3: Drag-and-Drop Sync App
 
-- Freeze the sync report fields required by timeline exporters.
-- Add dry-run validators for Premiere and Resolve export assumptions.
-- Implement XML export only after the report layer is reliable.
+- Status: timeline review slice in progress.
+- Keep media import automatic: users drop files/folders, the app separates video from audio.
+- Keep output links visible for synced MP4, XML, JSON report, and Markdown report.
+- Show the flattened edit, guide audio, and external sources as readable timeline layers.
+- Improve progress feedback for long media jobs.
 
-### Milestone 4: Review Experience
+### Milestone 4: Export Foundation
+
+- Status: conservative XML export slice in progress.
+- Keep XML generation downstream of the shared timeline model.
+- Add dry-run validators and compatibility notes for Premiere and Resolve import assumptions.
+
+### Milestone 5: Review Experience
 
 - Add a lightweight review surface for matches and unmatched regions.
 - Keep it downstream of the report contract so the engine stays reusable.

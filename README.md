@@ -2,7 +2,7 @@
 
 Local audio conform matching for edited video timelines, by [@danreipogi](https://github.com/danreipogi).
 
-Audio Conform Syncer is a Python-first tool for finding where clean source audio appears inside a flattened edited video with baked-in guide audio. It extracts the guide track, scans original audio files, and writes a structured sync report that can become the foundation for future XML export workflows.
+Audio Conform Syncer is a local tool for syncing edited video guide audio with clean external audio. It includes a drag-and-drop browser workspace for dropping mixed media, automatically separating video from audio, running sync, and exporting review reports plus a synced MP4.
 
 ## Status
 
@@ -10,14 +10,18 @@ MVP alpha complete.
 
 The current build focuses on the core matching path:
 
+- launch a local drag-and-drop sync workspace
 - extract reference audio from one edited video
 - load clean source audio from a folder
 - search for matching regions with normalized correlation
 - flag ambiguous repeated-audio matches with confidence metadata
 - merge adjacent hits into readable regions
+- show synced regions as timeline layers in the local app
 - write structured JSON and Markdown reports with summary diagnostics
+- export a synced MP4 with matched clean audio placed under the video
+- export conservative Premiere and DaVinci Resolve XML from synced regions
 
-Premiere XML export, DaVinci Resolve XML export, and review UI work are roadmap items, not current features.
+A richer timeline editor and deeper NLE-specific metadata are roadmap items, not current features.
 
 ## Supported Inputs
 
@@ -41,6 +45,9 @@ For best results, use clean production audio with the same content as the guide 
   - unmatched reference regions
   - run settings
 - Optional Markdown summary for manual review
+- Optional synced MP4 from the local app
+- Premiere XML from the local app
+- DaVinci Resolve XML from the local app
 
 ## Requirements
 
@@ -65,6 +72,25 @@ python -m pip install -e ".[dev]"
 ```
 
 ## Run
+
+Launch the local app:
+
+```powershell
+audio-conform-syncer --app
+```
+
+Open the printed local URL, then drop one flattened edit and one or more audio files or folders. The app separates video from audio, shows timeline layers, and writes job outputs under `.audio-conform-syncer/ui_jobs/`. Original source media is never overwritten.
+
+After sync completes, the results area shows:
+
+- a flattened edit / reference video layer
+- a baked-in guide audio layer
+- one external audio layer per source file
+- synced audio regions positioned on the timeline
+- unmatched audio layers
+- export buttons for Premiere XML, DaVinci Resolve XML, synced MP4, JSON, and Markdown
+
+The command-line path is still available:
 
 ```powershell
 audio-conform-syncer --video edited_cut.mp4 --audio-dir clean_audio --output sync_report.json
@@ -141,6 +167,7 @@ audio-conform-syncer/
     ROADMAP.md
   src/
     audio_conform_syncer/
+      app/          local drag-and-drop browser app
       cli/          command-line entry point
       core/         matching and timeline logic
       exports/      report writers
@@ -160,6 +187,10 @@ Before a public release or tagged build:
 
 - Confirm `ffmpeg -version` works in the active shell.
 - Run the CLI against a short edited video with guide audio.
+- Run `audio-conform-syncer --app`, drop the same media, and confirm the synced MP4/report links appear.
+- Confirm all highlighted files from a multi-file drag appear in the intake lists.
+- Confirm the timeline layer view appears after sync.
+- Confirm Premiere XML and DaVinci Resolve XML links appear after sync.
 - Use at least two clean source audio files in the input folder.
 - Confirm `sync_report.json` is created and valid JSON.
 - Check that reported reference/source time ranges are plausible.
@@ -172,9 +203,9 @@ Before a public release or tagged build:
 ## Roadmap
 
 - Strengthen match scoring and false-positive handling.
-- Add Premiere-compatible XML export.
-- Add DaVinci Resolve XML export.
-- Add a review UI or desktop app for inspecting matches.
+- Improve Premiere-compatible XML export metadata.
+- Improve DaVinci Resolve XML export metadata.
+- Improve the review UI timeline for inspecting matches.
 - Add fixture-based integration tests with tiny media samples.
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the working roadmap.

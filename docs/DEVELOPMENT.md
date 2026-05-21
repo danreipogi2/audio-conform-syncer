@@ -21,9 +21,28 @@ ffmpeg -version
 python -m pytest
 ```
 
-The automated tests cover the matching primitive, ambiguity scoring, timeline merge behavior, CLI validation, and a generated demo-media workflow.
+The automated tests cover the matching primitive, ambiguity scoring, timeline merge behavior, CLI validation, generated demo-media workflow, upload intake, timeline serialization, media export, and XML export.
 
 ## Run Locally
+
+Launch the drag-and-drop app:
+
+```powershell
+audio-conform-syncer --app
+```
+
+The app serves only on `127.0.0.1` by default. Uploaded media and generated outputs are written under `.audio-conform-syncer/ui_jobs/`, which is ignored by Git.
+
+Manual app smoke test:
+
+1. Launch `audio-conform-syncer --app`.
+2. Drag one flattened video and several audio files into the drop zone.
+3. Confirm the first video is selected and all audio files are listed.
+4. Click Synchronize.
+5. Confirm timeline layers render for the reference video, guide audio, and each external audio file.
+6. Confirm Premiere XML, DaVinci Resolve XML, synced MP4, JSON, and Markdown links appear.
+
+Run the CLI directly:
 
 ```powershell
 audio-conform-syncer --video edited_cut.mp4 --audio-dir clean_audio --output sync_report.json
