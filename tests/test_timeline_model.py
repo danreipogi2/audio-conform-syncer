@@ -32,8 +32,18 @@ class TimelineModelTests(unittest.TestCase):
         self.assertEqual(len(data["audio_tracks"]), 2)
         self.assertEqual(data["audio_tracks"][0]["status"], "matched")
         self.assertEqual(data["audio_tracks"][1]["status"], "unmatched")
+        self.assertEqual(data["guide_audio_track"]["sample_rate"], 16000)
+        self.assertEqual(data["audio_tracks"][0]["sample_rate"], 16000)
         self.assertEqual(data["audio_tracks"][0]["clips"][0]["timeline_in_seconds"], 1.0)
         self.assertFalse(data["audio_tracks"][0]["clips"][0]["low_confidence"])
+
+    def test_timeline_project_flags_low_confidence_regions(self) -> None:
+        report = _report_with_two_sources(confidence="low", score=0.62)
+
+        project = build_timeline_project(report, job_id="job-low", include_waveforms=False)
+        data = timeline_project_to_dict(project)
+
+        self.assertTrue(data["audio_tracks"][0]["clips"][0]["low_confidence"])
 
     def test_waveform_peaks_are_normalized(self) -> None:
         peaks = waveform_peaks_for_samples([0.0, 0.5, -0.5, 1.0], bars=2)
@@ -41,7 +51,7 @@ class TimelineModelTests(unittest.TestCase):
         self.assertEqual(peaks, [0.5, 1.0])
 
 
-def _report_with_two_sources() -> SyncReport:
+def _report_with_two_sources(confidence: str = "high", score: float = 0.91) -> SyncReport:
     source_a = str(Path("source-a.wav").resolve())
     source_b = str(Path("source-b.wav").resolve())
     return SyncReport(
@@ -68,9 +78,9 @@ def _report_with_two_sources() -> SyncReport:
                 reference_end_seconds=3.0,
                 source_start_seconds=0.5,
                 source_end_seconds=2.5,
-                score=0.91,
+                score=score,
                 score_margin=0.2,
-                confidence="high",
+                confidence=confidence,
             )
         ],
         unmatched_regions=[],
@@ -82,8 +92,8 @@ def _report_with_two_sources() -> SyncReport:
             matched_duration_seconds=2.0,
             unmatched_duration_seconds=8.0,
             coverage_percent=20.0,
-            average_match_score=0.91,
-            highest_match_score=0.91,
+            average_match_score=score,
+            highest_match_score=score,
             ambiguous_match_count=0,
         ),
     )

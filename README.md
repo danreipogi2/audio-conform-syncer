@@ -2,7 +2,7 @@
 
 Local audio conform matching for edited video timelines, by [@danreipogi](https://github.com/danreipogi).
 
-Audio Conform Syncer is a local tool for syncing edited video guide audio with clean external audio. It includes a drag-and-drop browser workspace for dropping mixed media, automatically separating video from audio, running sync, and exporting review reports plus a synced MP4.
+Audio Conform Syncer is a local tool for syncing edited video guide audio with clean external audio. It includes a drag-and-drop browser workspace for importing mixed media, reviewing clips, running sync, inspecting timeline tracks, watching diagnostics, and exporting reports, XML, and a synced MP4.
 
 ## Status
 
@@ -11,15 +11,17 @@ MVP alpha complete.
 The current build focuses on the core matching path:
 
 - launch a local drag-and-drop sync workspace
+- review imported clips in media bins and a clip viewer
 - extract reference audio from one edited video
 - load clean source audio from a folder
 - search for matching regions with normalized correlation
 - flag ambiguous repeated-audio matches with confidence metadata
 - merge adjacent hits into readable regions
 - show synced regions as timeline layers in the local app
+- show per-job diagnostics and lifecycle logs
 - write structured JSON and Markdown reports with summary diagnostics
 - export a synced MP4 with matched clean audio placed under the video
-- export conservative Premiere and DaVinci Resolve XML from synced regions
+- export conservative Premiere and DaVinci Resolve XML from completed sync jobs
 
 A richer timeline editor and deeper NLE-specific metadata are roadmap items, not current features.
 
@@ -46,8 +48,8 @@ For best results, use clean production audio with the same content as the guide 
   - run settings
 - Optional Markdown summary for manual review
 - Optional synced MP4 from the local app
-- Premiere XML from the local app
-- DaVinci Resolve XML from the local app
+- Premiere XML from the local app after sync completes
+- DaVinci Resolve XML from the local app after sync completes
 
 ## Requirements
 
@@ -79,16 +81,35 @@ Launch the local app:
 audio-conform-syncer --app
 ```
 
-Open the printed local URL, then drop one flattened edit and one or more audio files or folders. The app separates video from audio, shows timeline layers, and writes job outputs under `.audio-conform-syncer/ui_jobs/`. Original source media is never overwritten.
+Open the printed local URL, then drop one flattened edit and one or more audio files or folders. The app separates media into a flattened edit bin, source audio bin, and warnings bin. Unsupported files are warnings, not fatal errors, and extra videos are ignored after the first selected flattened edit.
 
-After sync completes, the results area shows:
+The browser workspace follows a simple editor-style flow:
+
+1. Import media.
+2. Review clips in the media pane and viewer.
+3. Synchronize the guide audio against source audio.
+4. Review synced regions on timeline tracks.
+5. Export XML for Premiere Pro or DaVinci Resolve.
+
+The workspace includes:
+
+- top workflow buttons for Add Media, Synchronize, Export Premiere XML, and Export DaVinci Resolve XML
+- a media pane with Flattened Edit, Source Audio, and Warnings bins
+- a viewer/preview panel for the selected media or timeline region
+- a timeline review with a time ruler, reference video row, guide-audio row, one source-audio row per file, confidence labels, and unmatched rows
+- a diagnostics/job log panel with timestamped backend events
+- a results area with JSON, Markdown, synced MP4, and XML download links
+
+After sync completes, the timeline shows:
 
 - a flattened edit / reference video layer
 - a baked-in guide audio layer
 - one external audio layer per source file
 - synced audio regions positioned on the timeline
 - unmatched audio layers
-- export buttons for Premiere XML, DaVinci Resolve XML, synced MP4, JSON, and Markdown
+- confidence labels and low-confidence styling
+
+Job outputs are written under `.audio-conform-syncer/ui_jobs/<job-id>/outputs/`. Original source media is never modified or overwritten. XML export actions are only enabled after a successful sync, and XML files are written only into that job output folder.
 
 The command-line path is still available:
 
@@ -190,7 +211,8 @@ Before a public release or tagged build:
 - Run `audio-conform-syncer --app`, drop the same media, and confirm the synced MP4/report links appear.
 - Confirm all highlighted files from a multi-file drag appear in the intake lists.
 - Confirm the timeline layer view appears after sync.
-- Confirm Premiere XML and DaVinci Resolve XML links appear after sync.
+- Confirm Premiere XML and DaVinci Resolve XML buttons are enabled after sync.
+- Click each XML export button and confirm the XML link appears after export.
 - Use at least two clean source audio files in the input folder.
 - Confirm `sync_report.json` is created and valid JSON.
 - Check that reported reference/source time ranges are plausible.

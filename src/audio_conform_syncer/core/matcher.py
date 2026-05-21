@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Callable
 
 import numpy as np
 
@@ -50,6 +51,7 @@ def run_conform(
     output_path: Path,
     work_dir: Path,
     settings: MatchSettings | None = None,
+    event_callback: Callable[[str, str, dict[str, Any] | None], None] | None = None,
 ) -> SyncReport:
     settings = settings or MatchSettings()
     validate_settings(settings)
@@ -66,8 +68,10 @@ def run_conform(
 
     work_dir.mkdir(parents=True, exist_ok=True)
     reference_wav = work_dir / "reference_guide.wav"
+    _emit(event_callback, "info", "Extracting guide audio", {"video": video_path.name})
     extract_reference_audio(video_path, reference_wav, sample_rate=settings.sample_rate)
 
+    _emit(event_callback, "info", "Decoding guide audio", {"sample_rate": settings.sample_rate})
     reference_samples, reference_rate = load_audio_mono(
         reference_wav,
         sample_rate=settings.sample_rate,
@@ -78,8 +82,10 @@ def run_conform(
     source_files = discover_audio_files(audio_dir)
     if not source_files:
         raise FileNotFoundError(f"no supported audio files found in: {audio_dir}")
+    _emit(event_callback, "info", "Audio files detected", {"count": len(source_files)})
 
     sources: list[tuple[Path, np.ndarray, AudioSummary]] = []
+    _emit(event_callback, "info", "Decoding source audio", {"count": len(source_files)})
     for source_file in source_files:
         samples, sample_rate = load_audio_mono(
             source_file,
@@ -95,7 +101,9 @@ def run_conform(
             )
         )
 
+    _emit(event_callback, "info", "Running correlation matching", {"sources": len(sources)})
     matches = find_matches(reference_samples, sources, settings)
+    _emit(event_callback, "info", "Merging adjacent matches", {"candidate_count": len(matches)})
     merged_matches = merge_matches(
         matches,
         gap_tolerance_seconds=settings.merge_gap_seconds,
@@ -129,6 +137,7 @@ def run_conform(
         summary=summary,
         diagnostics=diagnostics,
     )
+    _emit(event_callback, "info", "Writing JSON report", {"path": str(output_path)})
     write_json_report(report, output_path)
     return report
 
@@ -238,6 +247,16 @@ def validate_settings(settings: MatchSettings) -> None:
 
 
 _validate_settings = validate_settings
+
+
+def _emit(
+    callback: Callable[[str, str, dict[str, Any] | None], None] | None,
+    level: str,
+    message: str,
+    details: dict[str, Any] | None = None,
+) -> None:
+    if callback is not None:
+        callback(level, message, details)
 
 
 def classify_confidence(score: float, score_margin: float, threshold: float) -> str:

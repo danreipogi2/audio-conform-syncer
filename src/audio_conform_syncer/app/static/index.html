@@ -8,60 +8,87 @@
   </head>
   <body>
     <main class="app-shell">
-      <header class="topbar">
-        <div>
-          <p class="eyebrow">Audio Conform Syncer</p>
-          <h1>Sync Workspace</h1>
+      <header class="workflow-bar">
+        <div class="brand-block">
+          <p>Audio Conform Syncer</p>
+          <span>Local audio conform workspace</span>
         </div>
         <div class="system-status" id="systemStatus">Checking FFmpeg...</div>
+        <div class="workflow-actions" aria-label="Workflow actions">
+          <button type="button" id="addMediaButton">Add Media</button>
+          <button type="button" id="syncButton" class="primary-action" disabled>Synchronize</button>
+          <button type="button" id="exportPremiereButton" disabled>Export Premiere XML</button>
+          <button type="button" id="exportResolveButton" disabled>Export DaVinci Resolve XML</button>
+        </div>
       </header>
 
-      <section class="workspace-grid" aria-label="Sync workspace">
-        <div class="intake-panel">
-          <div id="dropZone" class="drop-zone" tabindex="0">
-            <div class="drop-mark" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 19h14" />
-              </svg>
-            </div>
-            <h2>Drop media</h2>
-            <p>Files or folders</p>
-            <div class="drop-actions">
-              <button type="button" id="chooseFiles">Add files</button>
-              <button type="button" id="chooseFolder">Add folder</button>
-            </div>
-            <input id="fileInput" type="file" multiple hidden>
-            <input id="folderInput" type="file" multiple webkitdirectory hidden>
-          </div>
+      <input id="fileInput" type="file" multiple hidden>
+      <input id="folderInput" type="file" multiple webkitdirectory hidden>
 
-          <div class="media-columns" aria-live="polite">
-            <section class="media-column">
-              <div class="column-head">
-                <span>Video</span>
-                <strong id="videoCount">0</strong>
-              </div>
-              <div id="videoList" class="media-list"></div>
-            </section>
-            <section class="media-column">
-              <div class="column-head">
-                <span>Audio</span>
-                <strong id="audioCount">0</strong>
-              </div>
-              <div id="audioList" class="media-list"></div>
-            </section>
-            <section class="media-column">
-              <div class="column-head">
-                <span>Unsupported</span>
-                <strong id="unsupportedCount">0</strong>
-              </div>
-              <div id="unsupportedList" class="media-list"></div>
-            </section>
-          </div>
+      <section id="dropZone" class="drop-strip" tabindex="0" aria-label="Media import drop zone">
+        <div>
+          <strong id="guidanceTitle">Drop one flattened edited video and your clean source audio files.</strong>
+          <span id="guidanceText">Multiple highlighted files are accepted in one drag.</span>
         </div>
+        <div class="drop-actions">
+          <button type="button" id="chooseFiles">Choose Files</button>
+          <button type="button" id="chooseFolder">Choose Folder</button>
+        </div>
+      </section>
 
-        <aside class="control-panel">
-          <section class="settings">
-            <h2>Sync Settings</h2>
+      <section class="workspace-grid" aria-label="Sync workspace">
+        <aside class="media-pane" aria-label="Imported clips">
+          <div class="pane-head">
+            <div>
+              <p class="eyebrow">Media</p>
+              <h1>Imported Clips</h1>
+            </div>
+            <button type="button" id="clearButton" class="text-action">Clear</button>
+          </div>
+
+          <section class="bin">
+            <div class="bin-head">
+              <span>Flattened Edit</span>
+              <strong id="videoCount">0</strong>
+            </div>
+            <div id="videoList" class="clip-list"></div>
+          </section>
+
+          <section class="bin">
+            <div class="bin-head">
+              <span>Source Audio</span>
+              <strong id="audioCount">0</strong>
+            </div>
+            <div id="audioList" class="clip-list"></div>
+          </section>
+
+          <section class="bin compact-bin">
+            <div class="bin-head warning-head">
+              <span>Warnings</span>
+              <strong id="warningCount">0</strong>
+            </div>
+            <div id="warningList" class="clip-list warning-list"></div>
+          </section>
+        </aside>
+
+        <section class="viewer-panel" aria-label="Clip viewer">
+          <div class="viewer-head">
+            <div>
+              <p class="eyebrow">Viewer</p>
+              <h2 id="viewerTitle">No clip selected</h2>
+            </div>
+            <span id="viewerStatus" class="status-pill">Waiting</span>
+          </div>
+          <div id="previewStage" class="preview-stage"></div>
+          <dl id="clipDetails" class="clip-details"></dl>
+        </section>
+
+        <aside class="review-panel" aria-label="Sync settings and exports">
+          <section class="settings-panel">
+            <div class="panel-title">
+              <p class="eyebrow">Match</p>
+              <h2>Sync Settings</h2>
+            </div>
             <label>
               <span>Threshold</span>
               <input id="threshold" type="range" min="0.1" max="0.95" step="0.01" value="0.5">
@@ -81,69 +108,80 @@
             </label>
           </section>
 
-          <button type="button" id="syncButton" class="primary-action" disabled>
-            Synchronize
-          </button>
-          <button type="button" id="clearButton" class="secondary-action">
-            Clear
-          </button>
+          <section class="status-panel">
+            <div class="panel-title">
+              <p class="eyebrow">Job</p>
+              <h2>Status</h2>
+            </div>
+            <div id="jobStatus" class="job-status" role="status">Ready</div>
+            <div class="metrics">
+              <div>
+                <span>Coverage</span>
+                <strong id="coverageMetric">--</strong>
+              </div>
+              <div>
+                <span>Matches</span>
+                <strong id="matchesMetric">--</strong>
+              </div>
+              <div>
+                <span>Ambiguous</span>
+                <strong id="ambiguousMetric">--</strong>
+              </div>
+            </div>
+          </section>
 
-          <div id="jobStatus" class="job-status" role="status">Ready</div>
+          <section id="resultsPanel" class="results-panel" aria-label="Export results">
+            <div class="panel-title">
+              <p class="eyebrow">Export</p>
+              <h2>Results</h2>
+            </div>
+            <p id="resultsHint">Review the synced regions below, then export XML for your editor.</p>
+            <div class="export-buttons">
+              <button type="button" id="premiereExportAction" disabled>Export Premiere XML</button>
+              <button type="button" id="resolveExportAction" disabled>Export DaVinci Resolve XML</button>
+            </div>
+            <div class="output-links">
+              <a id="premiereXmlLink" href="#" hidden>Premiere XML</a>
+              <a id="resolveXmlLink" href="#" hidden>DaVinci Resolve XML</a>
+              <a id="videoOutputLink" href="#" hidden>Synced MP4</a>
+              <a id="jsonOutputLink" href="#" hidden>JSON Report</a>
+              <a id="markdownOutputLink" href="#" hidden>Markdown Report</a>
+            </div>
+            <div id="exportError" class="export-error" role="alert" hidden></div>
+          </section>
         </aside>
       </section>
 
-      <section id="resultsPanel" class="results-panel" hidden>
-        <div class="results-head">
+      <section class="timeline-panel" aria-label="Timeline">
+        <div class="timeline-toolbar">
           <div>
-            <p class="eyebrow">Review</p>
-            <h2>Sync Results</h2>
+            <p class="eyebrow">Timeline</p>
+            <h2>Sync Review</h2>
           </div>
-          <div class="output-actions">
-            <a id="premiereXmlLink" href="#" class="output-link primary-export" hidden>Export Premiere XML</a>
-            <button id="premiereXmlDisabled" type="button" class="output-link" disabled hidden>
-              Export Premiere XML
-            </button>
-            <a id="resolveXmlLink" href="#" class="output-link primary-export" hidden>Export DaVinci Resolve XML</a>
-            <button id="resolveXmlDisabled" type="button" class="output-link" disabled hidden>
-              Export DaVinci Resolve XML
-            </button>
-            <a id="videoOutputLink" href="#" class="output-link" hidden>Synced MP4</a>
-            <a id="jsonOutputLink" href="#" class="output-link" hidden>JSON</a>
-            <a id="markdownOutputLink" href="#" class="output-link" hidden>Markdown</a>
+          <div class="timeline-meta">
+            <span id="timelineDuration">00:00.000</span>
+            <span id="timelineState">No media</span>
           </div>
         </div>
-
-        <div class="metrics">
-          <div>
-            <span>Coverage</span>
-            <strong id="coverageMetric">0%</strong>
-          </div>
-          <div>
-            <span>Matches</span>
-            <strong id="matchesMetric">0</strong>
-          </div>
-          <div>
-            <span>Ambiguous</span>
-            <strong id="ambiguousMetric">0</strong>
-          </div>
+        <div class="timeline-scroll">
+          <div id="timelineScale" class="timeline-scale"></div>
+          <div id="timelineLayers" class="timeline-layers"></div>
         </div>
+      </section>
 
+      <details class="diagnostics-panel" open>
+        <summary>
+          <span>Diagnostics</span>
+          <strong id="logCount">0</strong>
+        </summary>
         <div id="diagnostics" class="diagnostics"></div>
+      </details>
 
-        <section class="timeline-panel" aria-label="Timeline layers">
-          <div class="timeline-toolbar">
-            <div>
-              <h3>Timeline Layers</h3>
-              <p id="timelineDuration">00:00.000</p>
-            </div>
-            <div id="timelineWarnings" class="timeline-warnings"></div>
-          </div>
-          <div class="timeline-scroll">
-            <div id="timelineScale" class="timeline-scale"></div>
-            <div id="timelineLayers" class="timeline-layers"></div>
-          </div>
-        </section>
-
+      <section class="matches-panel" aria-label="Matched regions">
+        <div class="panel-title">
+          <p class="eyebrow">Regions</p>
+          <h2>Matched Regions</h2>
+        </div>
         <div class="match-table-wrap">
           <table>
             <thead>

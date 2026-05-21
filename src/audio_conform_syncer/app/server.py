@@ -13,9 +13,10 @@ from typing import Any
 from urllib.parse import unquote
 
 from audio_conform_syncer import __version__
+from audio_conform_syncer.app.job_log import append_job_log, job_logs_to_dicts, read_job_log
 from audio_conform_syncer.core.matcher import MatchSettings, run_conform, validate_settings
 from audio_conform_syncer.exports.media_export import export_synced_video
-from audio_conform_syncer.exports.reporting import write_markdown_report
+from audio_conform_syncer.exports.reporting import report_from_dict, write_markdown_report
 from audio_conform_syncer.exports.timeline_model import (
     build_timeline_project,
     timeline_project_to_dict,
@@ -48,6 +49,9 @@ AUDIO_EXTENSIONS = {
     ".wav",
     ".wave",
 }
+
+JOBS_ROOT = Path(".audio-conform-syncer") / "ui_jobs"
+JOB_ID_PATTERN = re.compile(r"^\d{8}-\d{6}-[a-fA-F0-9]{8}$")
 
 
 @dataclass(frozen=True)
@@ -95,25 +99,37 @@ class SyncAppHandler(BaseHTTPRequestHandler):
     server_version = "AudioConformSyncer/0.1"
 
     def do_GET(self) -> None:
-        if self.path == "/" or self.path == "/index.html":
+        path = self.path.split("?", 1)[0]
+        if path == "/" or path == "/index.html":
             self._send_static("index.html", "text/html; charset=utf-8")
             return
-        if self.path == "/static/app.css":
+        if path == "/static/app.css":
             self._send_static("app.css", "text/css; charset=utf-8")
             return
-        if self.path == "/static/app.js":
+        if path == "/static/app.js":
             self._send_static("app.js", "text/javascript; charset=utf-8")
             return
-        if self.path == "/api/health":
+        if path == "/api/health":
             self._send_json(self._health_payload())
             return
-        if self.path.startswith("/jobs/"):
+        logs_job_id = _match_logs_api_path(path)
+        if logs_job_id:
+            self._send_job_logs(logs_job_id)
+            return
+        if path.startswith("/jobs/"):
             self._send_job_file()
             return
         self.send_error(HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:
-        if self.path != "/api/sync":
+        path = self.path.split("?", 1)[0]
+        export_request = _match_export_api_path(path)
+        if export_request:
+            job_id, target = export_request
+            self._handle_xml_export(job_id, target)
+            return
+
+        if path != "/api/sync":
             self.send_error(HTTPStatus.NOT_FOUND)
             return
 
@@ -150,7 +166,7 @@ class SyncAppHandler(BaseHTTPRequestHandler):
         validate_settings(settings)
 
         job_id = f"{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}"
-        job_root = Path(".audio-conform-syncer") / "ui_jobs" / job_id
+        job_root = JOBS_ROOT / job_id
         video_dir = job_root / "input" / "video"
         audio_dir = job_root / "input" / "audio"
         output_dir = job_root / "outputs"
@@ -159,106 +175,159 @@ class SyncAppHandler(BaseHTTPRequestHandler):
         audio_dir.mkdir(parents=True, exist_ok=True)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        saved_videos: list[Path] = []
-        uploaded_media = save_uploaded_media_parts(files, video_dir=video_dir, audio_dir=audio_dir)
-        saved_videos.append(uploaded_media.selected_video)
+        def log_event(
+            level: str,
+            message: str,
+            details: dict[str, Any] | None = None,
+        ) -> None:
+            append_job_log(job_root, level, message, details)
 
-        if not uploaded_media.audio_files:
-            raise ValueError("drop at least one supported audio file")
+        append_job_log(job_root, "info", "Job created", {"job_id": job_id})
+        append_job_log(job_root, "info", "Files received", {"count": len(files)})
 
-        report_path = output_dir / "sync_report.json"
-        markdown_path = output_dir / "sync_report.md"
-        synced_video_path = output_dir / "synced_video.mp4"
-        premiere_xml_path = output_dir / "premiere_sync.xml"
-        resolve_xml_path = output_dir / "resolve_sync.xml"
-
-        report = run_conform(
-            video_path=uploaded_media.selected_video,
-            audio_dir=audio_dir,
-            output_path=report_path,
-            work_dir=work_dir,
-            settings=settings,
-        )
-        write_markdown_report(report, markdown_path)
-
-        output_urls = {
-            "json": _job_url(job_id, "outputs/sync_report.json"),
-            "markdown": _job_url(job_id, "outputs/sync_report.md"),
-            "synced_video": "",
-            "premiere_xml": "",
-            "resolve_xml": "",
-        }
-
-        export_status = {"ok": True, "error": ""}
         try:
-            export_synced_video(
-                report,
-                output_video=synced_video_path,
-                work_dir=work_dir / "export",
+            uploaded_media = save_uploaded_media_parts(
+                files,
+                video_dir=video_dir,
+                audio_dir=audio_dir,
             )
-            output_urls["synced_video"] = _job_url(job_id, "outputs/synced_video.mp4")
-        except (FFmpegError, OSError, ValueError) as error:
-            export_status = {"ok": False, "error": str(error)}
+            append_job_log(
+                job_root,
+                "info",
+                "Video detected",
+                {"file": uploaded_media.selected_video.name},
+            )
+            append_job_log(
+                job_root,
+                "info",
+                "Audio files detected",
+                {"count": len(uploaded_media.audio_files)},
+            )
+            if uploaded_media.unsupported_files:
+                append_job_log(
+                    job_root,
+                    "warning",
+                    "Unsupported files ignored",
+                    {"files": uploaded_media.unsupported_files},
+                )
+            for warning in uploaded_media.warnings:
+                append_job_log(job_root, "warning", warning)
 
-        xml_status = {
-            "premiere": {"ok": False, "error": "", "url": ""},
-            "resolve": {"ok": False, "error": "", "url": ""},
-        }
-        if report.matches:
-            xml_project = build_timeline_project(
+            if not uploaded_media.audio_files:
+                raise ValueError("drop at least one supported audio file")
+
+            output_urls = {
+                "json": _job_url(job_id, "outputs/sync_report.json"),
+                "markdown": _job_url(job_id, "outputs/sync_report.md"),
+                "synced_video": "",
+                "premiere_xml": "",
+                "resolve_xml": "",
+            }
+            xml_status = {
+                "premiere": {"ok": False, "error": "", "url": ""},
+                "resolve": {"ok": False, "error": "", "url": ""},
+            }
+            _write_job_manifest(
+                job_root,
+                {
+                    "job_id": job_id,
+                    "status": "syncing",
+                    "warnings": uploaded_media.warnings,
+                    "unsupported": uploaded_media.unsupported_files,
+                    "outputs": output_urls,
+                    "xml_exports": xml_status,
+                },
+            )
+
+            report_path = output_dir / "sync_report.json"
+            markdown_path = output_dir / "sync_report.md"
+            synced_video_path = output_dir / "synced_video.mp4"
+
+            report = run_conform(
+                video_path=uploaded_media.selected_video,
+                audio_dir=audio_dir,
+                output_path=report_path,
+                work_dir=work_dir,
+                settings=settings,
+                event_callback=log_event,
+            )
+            for note in report.diagnostics:
+                append_job_log(job_root, note.level, note.message)
+            append_job_log(job_root, "info", "Writing Markdown report", {"path": str(markdown_path)})
+            write_markdown_report(report, markdown_path)
+
+            export_status = {"ok": True, "error": ""}
+            append_job_log(job_root, "info", "Exporting synced MP4")
+            try:
+                export_synced_video(
+                    report,
+                    output_video=synced_video_path,
+                    work_dir=work_dir / "export",
+                )
+                output_urls["synced_video"] = _job_url(job_id, "outputs/synced_video.mp4")
+                append_job_log(job_root, "success", "Synced MP4 export complete")
+            except (FFmpegError, OSError, ValueError) as error:
+                export_status = {"ok": False, "error": str(error)}
+                append_job_log(job_root, "warning", "Synced MP4 export failed", {"error": str(error)})
+
+            if not report.matches:
+                reason = "XML export needs at least one synced region."
+                xml_status["premiere"]["error"] = reason
+                xml_status["resolve"]["error"] = reason
+
+            append_job_log(job_root, "info", "Building timeline model")
+            timeline_project = build_timeline_project(
                 report,
                 job_id=job_id,
                 warnings=uploaded_media.warnings,
-                include_waveforms=False,
+                export_paths=output_urls,
             )
-            try:
-                export_premiere_xml(xml_project, premiere_xml_path)
-                output_urls["premiere_xml"] = _job_url(job_id, "outputs/premiere_sync.xml")
-                xml_status["premiere"] = {
-                    "ok": True,
-                    "error": "",
-                    "url": output_urls["premiere_xml"],
-                }
-            except Exception as error:
-                xml_status["premiere"]["error"] = str(error)
 
-            try:
-                export_resolve_xml(xml_project, resolve_xml_path)
-                output_urls["resolve_xml"] = _job_url(job_id, "outputs/resolve_sync.xml")
-                xml_status["resolve"] = {
-                    "ok": True,
-                    "error": "",
-                    "url": output_urls["resolve_xml"],
-                }
-            except Exception as error:
-                xml_status["resolve"]["error"] = str(error)
-        else:
-            reason = "XML export needs at least one synced region."
-            xml_status["premiere"]["error"] = reason
-            xml_status["resolve"]["error"] = reason
+            _write_job_manifest(
+                job_root,
+                {
+                    "job_id": job_id,
+                    "status": "synced",
+                    "warnings": uploaded_media.warnings,
+                    "unsupported": uploaded_media.unsupported_files,
+                    "outputs": output_urls,
+                    "xml_exports": xml_status,
+                },
+            )
+            append_job_log(
+                job_root,
+                "success",
+                "Sync complete",
+                {"matches": len(report.matches), "coverage_percent": report.summary.coverage_percent},
+            )
 
-        timeline_project = build_timeline_project(
-            report,
-            job_id=job_id,
-            warnings=uploaded_media.warnings,
-            export_paths=output_urls,
-        )
-
-        return {
-            "ok": True,
-            "job_id": job_id,
-            "video_count": len(saved_videos),
-            "audio_count": len(uploaded_media.audio_files),
-            "unsupported": uploaded_media.unsupported_files,
-            "warnings": uploaded_media.warnings,
-            "summary": asdict(report.summary),
-            "diagnostics": [asdict(item) for item in report.diagnostics],
-            "matches": [asdict(item) for item in report.matches],
-            "outputs": output_urls,
-            "export": export_status,
-            "xml_exports": xml_status,
-            "timeline": timeline_project_to_dict(timeline_project),
-        }
+            return {
+                "ok": True,
+                "job_id": job_id,
+                "video_count": 1,
+                "audio_count": len(uploaded_media.audio_files),
+                "unsupported": uploaded_media.unsupported_files,
+                "warnings": uploaded_media.warnings,
+                "summary": asdict(report.summary),
+                "diagnostics": [asdict(item) for item in report.diagnostics],
+                "matches": [asdict(item) for item in report.matches],
+                "outputs": output_urls,
+                "export": export_status,
+                "xml_exports": xml_status,
+                "logs": job_logs_to_dicts(read_job_log(job_root)),
+                "timeline": timeline_project_to_dict(timeline_project),
+            }
+        except Exception as error:
+            append_job_log(job_root, "error", "Error details", {"error": str(error)})
+            _write_job_manifest(
+                job_root,
+                {
+                    "job_id": job_id,
+                    "status": "error",
+                    "error": str(error),
+                },
+            )
+            raise
 
     def _send_static(self, filename: str, content_type: str) -> None:
         static_root = Path(__file__).with_name("static")
@@ -268,16 +337,136 @@ class SyncAppHandler(BaseHTTPRequestHandler):
             return
         self._send_bytes(path.read_bytes(), content_type)
 
-    def _send_job_file(self) -> None:
-        relative = unquote(self.path.removeprefix("/jobs/"))
-        safe_parts = [part for part in Path(relative).parts if part not in {"", ".", ".."}]
-        if not safe_parts:
+    def _send_job_logs(self, job_id: str) -> None:
+        job_root = _validated_job_root(job_id)
+        if job_root is None or not job_root.exists():
             self.send_error(HTTPStatus.NOT_FOUND)
             return
-        path = Path(".audio-conform-syncer") / "ui_jobs" / Path(*safe_parts)
+        self._send_json(
+            {
+                "ok": True,
+                "job_id": job_id,
+                "logs": job_logs_to_dicts(read_job_log(job_root)),
+            }
+        )
+
+    def _handle_xml_export(self, job_id: str, target: str) -> None:
+        job_root = _validated_job_root(job_id)
+        if job_root is None or not job_root.exists():
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+
+        if target == "premiere":
+            label = "Premiere XML"
+            output_key = "premiere_xml"
+            output_name = "premiere_sync.xml"
+            export_fn = export_premiere_xml
+        elif target == "resolve":
+            label = "DaVinci Resolve XML"
+            output_key = "resolve_xml"
+            output_name = "resolve_sync.xml"
+            export_fn = export_resolve_xml
+        else:
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+
+        manifest = _read_job_manifest(job_root)
+        if manifest.get("status") != "synced":
+            append_job_log(
+                job_root,
+                "error",
+                f"Exporting {label} failed",
+                {"error": "Sync must complete before XML export."},
+            )
+            self._send_json(
+                {
+                    "ok": False,
+                    "error": "Sync must complete before XML export.",
+                    "logs": job_logs_to_dicts(read_job_log(job_root)),
+                },
+                status=HTTPStatus.CONFLICT,
+            )
+            return
+
+        try:
+            report = _read_sync_report(job_root)
+        except (OSError, ValueError, KeyError) as error:
+            append_job_log(job_root, "error", f"Exporting {label} failed", {"error": str(error)})
+            self._send_json(
+                {
+                    "ok": False,
+                    "error": str(error),
+                    "logs": job_logs_to_dicts(read_job_log(job_root)),
+                },
+                status=HTTPStatus.CONFLICT,
+            )
+            return
+
+        if not report.matches:
+            error = "XML export needs at least one synced region."
+            append_job_log(job_root, "error", f"Exporting {label} failed", {"error": error})
+            self._send_json(
+                {
+                    "ok": False,
+                    "error": error,
+                    "logs": job_logs_to_dicts(read_job_log(job_root)),
+                },
+                status=HTTPStatus.CONFLICT,
+            )
+            return
+
+        append_job_log(job_root, "info", f"Exporting {label}")
+        try:
+            outputs = dict(manifest.get("outputs") or {})
+            output_path = _job_output_path(job_root, output_name)
+            project = build_timeline_project(
+                report,
+                job_id=job_id,
+                warnings=list(manifest.get("warnings") or []),
+                export_paths=outputs,
+                include_waveforms=False,
+            )
+            export_fn(project, output_path)
+            url = _job_url(job_id, f"outputs/{output_name}")
+            outputs[output_key] = url
+            xml_exports = dict(manifest.get("xml_exports") or {})
+            xml_exports[target] = {"ok": True, "error": "", "url": url}
+            manifest["outputs"] = outputs
+            manifest["xml_exports"] = xml_exports
+            _write_job_manifest(job_root, manifest)
+            append_job_log(job_root, "success", "Export complete", {"target": target, "url": url})
+            self._send_json(
+                {
+                    "ok": True,
+                    "job_id": job_id,
+                    "target": target,
+                    "url": url,
+                    "outputs": outputs,
+                    "xml_exports": xml_exports,
+                    "logs": job_logs_to_dicts(read_job_log(job_root)),
+                }
+            )
+        except Exception as error:
+            append_job_log(job_root, "error", f"Exporting {label} failed", {"error": str(error)})
+            self._send_json(
+                {
+                    "ok": False,
+                    "error": str(error),
+                    "logs": job_logs_to_dicts(read_job_log(job_root)),
+                },
+                status=HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
+
+    def _send_job_file(self) -> None:
+        relative = unquote(self.path.split("?", 1)[0].removeprefix("/jobs/"))
+        safe_parts = [part for part in Path(relative).parts if part not in {"", ".", ".."}]
+        if not safe_parts or not _is_valid_job_id(safe_parts[0]):
+            self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        path = JOBS_ROOT / Path(*safe_parts)
         try:
             resolved = path.resolve()
-            root = (Path(".audio-conform-syncer") / "ui_jobs").resolve()
+            root = JOBS_ROOT.resolve()
             if root not in resolved.parents:
                 self.send_error(HTTPStatus.NOT_FOUND)
                 return
@@ -444,6 +633,67 @@ def _unique_name(filename: str, seen_names: dict[str, int]) -> str:
 def _job_url(job_id: str, relative_path: str) -> str:
     safe_relative = relative_path.replace("\\", "/")
     return f"/jobs/{job_id}/{safe_relative}"
+
+
+def _match_logs_api_path(path: str) -> str | None:
+    match = re.fullmatch(r"/api/jobs/([^/]+)/logs", path)
+    if not match:
+        return None
+    job_id = unquote(match.group(1))
+    return job_id if _is_valid_job_id(job_id) else None
+
+
+def _match_export_api_path(path: str) -> tuple[str, str] | None:
+    match = re.fullmatch(r"/api/jobs/([^/]+)/exports/([^/]+)", path)
+    if not match:
+        return None
+    job_id = unquote(match.group(1))
+    target = unquote(match.group(2))
+    if not _is_valid_job_id(job_id):
+        return None
+    return job_id, target
+
+
+def _is_valid_job_id(job_id: str) -> bool:
+    return bool(JOB_ID_PATTERN.fullmatch(job_id))
+
+
+def _validated_job_root(job_id: str) -> Path | None:
+    if not _is_valid_job_id(job_id):
+        return None
+    root = JOBS_ROOT.resolve()
+    job_root = (JOBS_ROOT / job_id).resolve()
+    if root != job_root and root not in job_root.parents:
+        return None
+    return job_root
+
+
+def _read_job_manifest(job_root: Path) -> dict[str, Any]:
+    path = job_root / "job_manifest.json"
+    if not path.exists():
+        return {}
+    return dict(json.loads(path.read_text(encoding="utf-8")))
+
+
+def _write_job_manifest(job_root: Path, manifest: dict[str, Any]) -> None:
+    path = job_root / "job_manifest.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def _read_sync_report(job_root: Path):
+    path = _job_output_path(job_root, "sync_report.json")
+    if not path.exists():
+        raise ValueError("Sync report is not available for this job.")
+    return report_from_dict(json.loads(path.read_text(encoding="utf-8")))
+
+
+def _job_output_path(job_root: Path, filename: str) -> Path:
+    output_dir = (job_root / "outputs").resolve()
+    output_path = (output_dir / filename).resolve()
+    if output_dir != output_path.parent:
+        raise ValueError("Invalid output path.")
+    return output_path
 
 
 if __name__ == "__main__":

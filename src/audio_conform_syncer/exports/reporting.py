@@ -5,7 +5,14 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from audio_conform_syncer.models import MatchCandidate, SyncReport, TimeRange
+from audio_conform_syncer.models import (
+    AudioSummary,
+    DiagnosticNote,
+    MatchCandidate,
+    ReportSummary,
+    SyncReport,
+    TimeRange,
+)
 
 
 def report_to_dict(report: SyncReport) -> dict[str, Any]:
@@ -17,6 +24,24 @@ def write_json_report(report: SyncReport, output_path: Path) -> None:
     output_path.write_text(
         json.dumps(report_to_dict(report), indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
+    )
+
+
+def report_from_dict(data: dict[str, Any]) -> SyncReport:
+    return SyncReport(
+        tool_name=str(data["tool_name"]),
+        author=str(data["author"]),
+        created_at_utc=str(data["created_at_utc"]),
+        reference_media=str(data["reference_media"]),
+        audio_directory=str(data["audio_directory"]),
+        reference_audio=AudioSummary(**data["reference_audio"]),
+        source_audio=[AudioSummary(**item) for item in data.get("source_audio", [])],
+        settings=dict(data.get("settings") or {}),
+        matches=[MatchCandidate(**item) for item in data.get("matches", [])],
+        unmatched_regions=[TimeRange(**item) for item in data.get("unmatched_regions", [])],
+        summary=ReportSummary(**data.get("summary", {})),
+        diagnostics=[DiagnosticNote(**item) for item in data.get("diagnostics", [])],
+        schema_version=str(data.get("schema_version", "1.0")),
     )
 
 

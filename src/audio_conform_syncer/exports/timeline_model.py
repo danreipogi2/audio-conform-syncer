@@ -46,6 +46,8 @@ class TimelineTrack:
     duration_seconds: float
     track_index: int
     status: str
+    sample_rate: int = 0
+    channels: int = 0
     clips: list[TimelineClip] = field(default_factory=list)
     waveform_peaks: list[float] = field(default_factory=list)
 
@@ -113,6 +115,7 @@ def build_timeline_project(
         duration_seconds=duration,
         track_index=1,
         status="reference",
+        sample_rate=report.reference_audio.sample_rate,
         waveform_peaks=_safe_waveform_peaks(
             Path(report.reference_audio.path),
             bars=waveform_bars,
@@ -139,6 +142,7 @@ def build_timeline_project(
                 duration_seconds=source.duration_seconds,
                 track_index=index,
                 status="matched" if clips else "unmatched",
+                sample_rate=source.sample_rate,
                 clips=clips,
                 waveform_peaks=_safe_waveform_peaks(
                     Path(source.path),
