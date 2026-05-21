@@ -1,20 +1,20 @@
 # Roadmap
 
-Audio Conform Syncer is currently an early MVP / sync-engine foundation.
+Audio Conform Syncer is currently a complete MVP alpha for local report-based audio conform matching.
 
 ## Now
 
 - Keep the CLI stable and boring.
-- Improve matching quality with real test cases.
-- Keep reports structured enough for export tooling.
-- Document manual QA clearly.
+- Run manual QA on short real edits and collect false-positive cases.
+- Keep reports structured and reviewable before export tooling.
+- Tune confidence and ambiguity thresholds from real media.
 
 ## Next
 
-- Add fixture-based integration tests with tiny generated media.
-- Improve match confidence scoring.
-- Reduce false positives across repeated dialogue or music beds.
-- Add clearer diagnostics when FFmpeg is missing or media decode fails.
+- Add exporter preflight checks for Premiere and Resolve assumptions.
+- Expand fixture coverage for repeated dialogue, music beds, and noisy guide tracks.
+- Add stronger multi-stage scoring beyond normalized correlation.
+- Add a small report viewer for manual review.
 
 ## Later
 

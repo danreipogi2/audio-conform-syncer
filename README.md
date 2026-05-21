@@ -6,15 +6,16 @@ Audio Conform Syncer is a Python-first tool for finding where clean source audio
 
 ## Status
 
-Early MVP / sync-engine foundation.
+MVP alpha complete.
 
 The current build focuses on the core matching path:
 
 - extract reference audio from one edited video
 - load clean source audio from a folder
 - search for matching regions with normalized correlation
+- flag ambiguous repeated-audio matches with confidence metadata
 - merge adjacent hits into readable regions
-- write a structured JSON report
+- write structured JSON and Markdown reports with summary diagnostics
 
 Premiere XML export, DaVinci Resolve XML export, and review UI work are roadmap items, not current features.
 
@@ -34,6 +35,9 @@ For best results, use clean production audio with the same content as the guide 
   - source audio metadata
   - matched reference/source time ranges
   - confidence scores
+  - score margins and confidence labels
+  - coverage summary
+  - diagnostic notes
   - unmatched reference regions
   - run settings
 - Optional Markdown summary for manual review
@@ -83,6 +87,12 @@ audio-conform-syncer --help
 ```
 
 The defaults are intentionally conservative for MVP use. If the report is too sparse, lower `--threshold` slightly. If it is too noisy, raise it.
+
+If repeated dialogue, room tone, or music creates ambiguous matches, use `--min-score-margin` to require the best alignment to beat the nearest distinct runner-up:
+
+```powershell
+audio-conform-syncer --video edited_cut.mp4 --audio-dir clean_audio --min-score-margin 0.05
+```
 
 Check the local environment:
 
@@ -140,6 +150,7 @@ audio-conform-syncer/
     create_demo_media.py
   tests/
     test_correlation.py
+    test_demo_workflow.py
     test_merge.py
 ```
 
@@ -152,7 +163,9 @@ Before a public release or tagged build:
 - Use at least two clean source audio files in the input folder.
 - Confirm `sync_report.json` is created and valid JSON.
 - Check that reported reference/source time ranges are plausible.
+- Check report coverage, match confidence labels, and diagnostic notes.
 - Re-run with a higher threshold and confirm fewer or equal matches.
+- Re-run with `--min-score-margin 0.05` if repeated source audio creates ambiguous matches.
 - Re-run with `--markdown-output` and confirm the review summary opens cleanly.
 - Run the automated tests.
 

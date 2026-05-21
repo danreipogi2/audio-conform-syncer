@@ -63,6 +63,9 @@ class ConformWorkflowTests(unittest.TestCase):
             self.assertTrue((root / "sync_report.json").exists())
             self.assertGreaterEqual(len(report.matches), 1)
             self.assertEqual(report.matches[0].source_path, str(source_path.resolve()))
+            self.assertEqual(report.summary.source_count, 1)
+            self.assertGreater(report.summary.coverage_percent, 0.0)
+            self.assertNotEqual(report.matches[0].confidence, "unknown")
 
 
 def _sine(frequency: float, seconds: float, sample_rate: int = 8000) -> np.ndarray:

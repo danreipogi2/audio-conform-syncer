@@ -11,6 +11,8 @@ class AlignmentResult:
 
     offset_samples: int
     score: float
+    runner_up_score: float = 0.0
+    score_margin: float = 0.0
 
     def offset_seconds(self, sample_rate: int) -> float:
         return self.offset_samples / sample_rate
@@ -93,7 +95,18 @@ def best_alignment(query: np.ndarray, target: np.ndarray) -> AlignmentResult:
     )
     abs_scores = np.abs(scores)
     best_index = int(np.argmax(abs_scores))
-    return AlignmentResult(offset_samples=best_index, score=float(abs_scores[best_index]))
+    best_score = float(abs_scores[best_index])
+    runner_up_score = _runner_up_peak_score(
+        abs_scores,
+        best_index=best_index,
+        exclusion_radius=window_size,
+    )
+    return AlignmentResult(
+        offset_samples=best_index,
+        score=best_score,
+        runner_up_score=runner_up_score,
+        score_margin=max(0.0, best_score - runner_up_score),
+    )
 
 
 def _fft_correlate_valid(target: np.ndarray, query: np.ndarray) -> np.ndarray:
@@ -108,3 +121,18 @@ def _fft_correlate_valid(target: np.ndarray, query: np.ndarray) -> np.ndarray:
 def _sliding_sum(samples: np.ndarray, window_size: int) -> np.ndarray:
     cumulative = np.concatenate(([0.0], np.cumsum(samples, dtype=np.float64)))
     return cumulative[window_size:] - cumulative[:-window_size]
+
+
+def _runner_up_peak_score(
+    scores: np.ndarray,
+    best_index: int,
+    exclusion_radius: int,
+) -> float:
+    if scores.size <= 1:
+        return 0.0
+
+    masked = scores.copy()
+    start = max(0, best_index - exclusion_radius + 1)
+    end = min(scores.size, best_index + exclusion_radius)
+    masked[start:end] = 0.0
+    return float(np.max(masked)) if masked.size else 0.0

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 import math
 import shutil
 import subprocess
@@ -11,7 +12,15 @@ from pathlib import Path
 SAMPLE_RATE = 16_000
 
 
-def main() -> int:
+@dataclass(frozen=True)
+class DemoMedia:
+    output_dir: Path
+    clean_audio_dir: Path
+    guide_wav: Path
+    edited_video: Path | None
+
+
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Generate tiny demo media for Audio Conform Syncer.")
     parser.add_argument(
         "--output-dir",
@@ -23,11 +32,34 @@ def main() -> int:
         action="store_true",
         help="Replace existing files in the output directory.",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
-    output_dir = Path(args.output_dir)
-    if output_dir.exists() and any(output_dir.iterdir()) and not args.overwrite:
-        raise SystemExit(f"{output_dir} already contains files. Re-run with --overwrite.")
+    try:
+        media = generate_demo_media(
+            Path(args.output_dir),
+            overwrite=args.overwrite,
+            create_video=True,
+        )
+    except FileExistsError as error:
+        raise SystemExit(str(error)) from None
+
+    if media.edited_video is not None:
+        print(f"Wrote demo video: {media.edited_video}")
+    else:
+        print("FFmpeg was not found on PATH. Wrote reference_guide.wav but skipped MP4 creation.")
+
+    print(f"Wrote clean audio folder: {media.clean_audio_dir}")
+    print("Demo media is generated, synthetic, and safe to delete.")
+    return 0
+
+
+def generate_demo_media(
+    output_dir: Path,
+    overwrite: bool = False,
+    create_video: bool = True,
+) -> DemoMedia:
+    if output_dir.exists() and any(output_dir.iterdir()) and not overwrite:
+        raise FileExistsError(f"{output_dir} already contains files. Re-run with --overwrite.")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     clean_audio_dir = output_dir / "clean_audio"
@@ -49,15 +81,17 @@ def main() -> int:
     write_wav(guide_wav, guide)
 
     edited_video = output_dir / "edited_cut.mp4"
-    if shutil.which("ffmpeg"):
+    video_path: Path | None = None
+    if create_video and shutil.which("ffmpeg"):
         _make_video_with_audio(guide_wav, edited_video)
-        print(f"Wrote demo video: {edited_video}")
-    else:
-        print("FFmpeg was not found on PATH. Wrote reference_guide.wav but skipped MP4 creation.")
+        video_path = edited_video
 
-    print(f"Wrote clean audio folder: {clean_audio_dir}")
-    print("Demo media is generated, synthetic, and safe to delete.")
-    return 0
+    return DemoMedia(
+        output_dir=output_dir,
+        clean_audio_dir=clean_audio_dir,
+        guide_wav=guide_wav,
+        edited_video=video_path,
+    )
 
 
 def write_wav(path: Path, samples: list[float]) -> None:

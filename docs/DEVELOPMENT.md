@@ -21,7 +21,7 @@ ffmpeg -version
 python -m pytest
 ```
 
-The current automated tests cover the matching primitive and timeline merge behavior. End-to-end media tests should use tiny synthetic fixtures when added.
+The automated tests cover the matching primitive, ambiguity scoring, timeline merge behavior, CLI validation, and a generated demo-media workflow.
 
 ## Run Locally
 
@@ -48,6 +48,7 @@ The script creates clean source WAVs, a guide WAV, and an `edited_cut.mp4` when 
 ## Tuning
 
 - `--threshold` controls how confident a match must be.
+- `--min-score-margin` filters ambiguous repeated audio by requiring the best alignment to beat the nearest distinct runner-up.
 - `--window-seconds` controls how much reference audio is compared at once.
 - `--hop-seconds` controls how often the reference timeline is sampled.
 - `--sample-rate` controls analysis sample rate.

@@ -30,6 +30,20 @@ class CorrelationTests(unittest.TestCase):
         self.assertEqual(result.offset_samples, 0)
         self.assertEqual(result.score, 0.0)
 
+    def test_best_alignment_reports_repeated_audio_ambiguity(self) -> None:
+        rng = np.random.default_rng(7)
+        query = rng.normal(size=64).astype(np.float32)
+        target = np.zeros(512, dtype=np.float32)
+        target[80 : 80 + len(query)] = query
+        target[320 : 320 + len(query)] = query
+
+        result = best_alignment(query, target)
+
+        self.assertIn(result.offset_samples, {80, 320})
+        self.assertGreater(result.score, 0.99)
+        self.assertGreater(result.runner_up_score, 0.99)
+        self.assertLess(result.score_margin, 0.01)
+
     def test_fft_correlation_matches_numpy_valid_correlation(self) -> None:
         rng = np.random.default_rng(123)
         target = rng.normal(size=64)

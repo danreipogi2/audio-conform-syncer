@@ -8,7 +8,12 @@ from pathlib import Path
 import numpy as np
 
 from audio_conform_syncer import __version__
-from audio_conform_syncer.core.matcher import MatchSettings, discover_audio_files, run_conform
+from audio_conform_syncer.core.matcher import (
+    MatchSettings,
+    discover_audio_files,
+    run_conform,
+    validate_settings,
+)
 from audio_conform_syncer.exports.reporting import write_markdown_report
 from audio_conform_syncer.media.ffmpeg_tools import FFmpegError, ffmpeg_version
 
@@ -75,6 +80,15 @@ def build_parser() -> argparse.ArgumentParser:
         default=0.75,
         help="Maximum reference gap to merge adjacent matches. Defaults to 0.75.",
     )
+    parser.add_argument(
+        "--min-score-margin",
+        type=float,
+        default=0.0,
+        help=(
+            "Reject matches whose best score is not this much stronger than the nearest "
+            "distinct runner-up. Defaults to 0.0."
+        ),
+    )
     return parser
 
 
@@ -94,7 +108,12 @@ def main(argv: list[str] | None = None) -> int:
         hop_seconds=args.hop_seconds,
         threshold=args.threshold,
         merge_gap_seconds=args.merge_gap_seconds,
+        minimum_score_margin=args.min_score_margin,
     )
+    try:
+        validate_settings(settings)
+    except ValueError as error:
+        parser.error(str(error))
 
     if args.dry_run:
         return run_dry_run(Path(args.video), Path(args.audio_dir), settings)
@@ -118,6 +137,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Wrote Markdown summary: {Path(args.markdown_output)}")
     print(f"Matches: {len(report.matches)}")
     print(f"Unmatched regions: {len(report.unmatched_regions)}")
+    print(f"Coverage: {report.summary.coverage_percent:.1f}%")
+    for note in report.diagnostics:
+        print(f"{note.level}: {note.message}")
     return 0
 
 

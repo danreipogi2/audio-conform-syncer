@@ -32,13 +32,17 @@ def render_markdown_report(report: SyncReport) -> str:
         "",
         "## Summary",
         "",
-        f"- Matches: {len(report.matches)}",
-        f"- Unmatched regions: {len(report.unmatched_regions)}",
+        f"- Sources scanned: {report.summary.source_count}",
+        f"- Matches: {report.summary.match_count}",
+        f"- Unmatched regions: {report.summary.unmatched_region_count}",
+        f"- Coverage: {report.summary.coverage_percent:.1f}%",
+        f"- Average score: {report.summary.average_match_score:.3f}",
         f"- Sample rate: {report.settings.get('sample_rate')} Hz",
         f"- Threshold: {report.settings.get('threshold')}",
         "",
     ]
 
+    lines.extend(_render_diagnostics(report))
     lines.extend(_render_matches(report.matches))
     lines.extend(_render_unmatched(report.unmatched_regions))
     return "\n".join(lines) + "\n"
@@ -57,8 +61,8 @@ def _render_matches(matches: list[MatchCandidate]) -> list[str]:
 
     lines.extend(
         [
-            "| Reference | Source | Score | File |",
-            "| --- | --- | ---: | --- |",
+            "| Reference | Source | Score | Margin | Confidence | File |",
+            "| --- | --- | ---: | ---: | --- | --- |",
         ]
     )
     for item in matches:
@@ -67,8 +71,18 @@ def _render_matches(matches: list[MatchCandidate]) -> list[str]:
             f"{_format_range(item.reference_start_seconds, item.reference_end_seconds)} | "
             f"{_format_range(item.source_start_seconds, item.source_end_seconds)} | "
             f"{item.score:.3f} | "
+            f"{item.score_margin:.3f} | "
+            f"{item.confidence} | "
             f"`{item.source_path}` |"
         )
+    lines.append("")
+    return lines
+
+
+def _render_diagnostics(report: SyncReport) -> list[str]:
+    lines = ["## Diagnostics", ""]
+    for note in report.diagnostics:
+        lines.append(f"- {note.level}: {note.message}")
     lines.append("")
     return lines
 

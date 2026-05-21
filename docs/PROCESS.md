@@ -33,15 +33,15 @@ A change is done when:
 
 ### Milestone 1: Reliable CLI Foundation
 
-- Keep install, demo generation, tests, and CI stable.
-- Improve diagnostics for FFmpeg and media errors.
-- Add report schema documentation.
+- Status: complete for MVP alpha.
+- Keep install, demo generation, tests, and CI stable as changes land.
+- Keep report schema documentation aligned with generated JSON.
 
 ### Milestone 2: Better Match Quality
 
-- Add fixture-based media tests.
-- Improve repeated-audio false-positive handling.
-- Add confidence bands and richer diagnostics.
+- Status: in progress beyond MVP alpha.
+- Expand fixture coverage using real-world repeated dialogue and music cases.
+- Tune confidence bands and score-margin thresholds from real media.
 
 ### Milestone 3: Export Foundation
 

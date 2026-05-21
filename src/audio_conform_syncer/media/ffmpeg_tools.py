@@ -49,7 +49,8 @@ def extract_reference_audio(video_path: Path, output_wav: Path, sample_rate: int
             "-acodec",
             "pcm_s16le",
             str(output_wav),
-        ]
+        ],
+        action=f"extracting guide audio from {video_path}",
     )
 
 
@@ -93,7 +94,8 @@ def decode_audio_to_wav(input_path: Path, output_wav: Path, sample_rate: int) ->
             "-acodec",
             "pcm_s16le",
             str(output_wav),
-        ]
+        ],
+        action=f"decoding audio file {input_path}",
     )
 
 
@@ -111,7 +113,7 @@ def read_wav_mono(path: Path) -> tuple[np.ndarray, int]:
     return samples.astype(np.float32), sample_rate
 
 
-def _run_ffmpeg(args: list[str]) -> None:
+def _run_ffmpeg(args: list[str], action: str = "running FFmpeg") -> None:
     executable = shutil.which("ffmpeg")
     if executable is None:
         raise FFmpegError("FFmpeg was not found on PATH")
@@ -124,7 +126,13 @@ def _run_ffmpeg(args: list[str]) -> None:
     )
     if completed.returncode != 0:
         detail = completed.stderr.strip() or completed.stdout.strip()
-        raise FFmpegError(f"FFmpeg failed: {detail}")
+        raise FFmpegError(f"FFmpeg failed while {action}: {_shorten_process_output(detail)}")
+
+
+def _shorten_process_output(detail: str, limit: int = 1400) -> str:
+    if len(detail) <= limit:
+        return detail
+    return detail[:limit].rstrip() + "..."
 
 
 def _decoded_wav_path(input_path: Path, work_dir: Path) -> Path:

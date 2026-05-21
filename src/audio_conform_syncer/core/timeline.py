@@ -100,8 +100,10 @@ def _merge_pair(left: MatchCandidate, right: MatchCandidate) -> MatchCandidate:
     total_duration = left_duration + right_duration
     if total_duration <= 0:
         score = max(left.score, right.score)
+        score_margin = min(left.score_margin, right.score_margin)
     else:
         score = ((left.score * left_duration) + (right.score * right_duration)) / total_duration
+        score_margin = min(left.score_margin, right.score_margin)
 
     return MatchCandidate(
         source_path=left.source_path,
@@ -110,4 +112,17 @@ def _merge_pair(left: MatchCandidate, right: MatchCandidate) -> MatchCandidate:
         source_start_seconds=min(left.source_start_seconds, right.source_start_seconds),
         source_end_seconds=max(left.source_end_seconds, right.source_end_seconds),
         score=score,
+        score_margin=score_margin,
+        confidence=_merge_confidence(left.confidence, right.confidence),
     )
+
+
+def _merge_confidence(left: str, right: str) -> str:
+    ranks = {
+        "ambiguous": 0,
+        "unknown": 1,
+        "low": 2,
+        "medium": 3,
+        "high": 4,
+    }
+    return left if ranks.get(left, 1) <= ranks.get(right, 1) else right

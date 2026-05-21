@@ -6,7 +6,8 @@ Audio Conform Syncer is organized around one MVP workflow:
 2. Decode clean source audio files.
 3. Compare reference windows against each source file.
 4. Merge adjacent matches into readable timeline regions.
-5. Write a structured sync report.
+5. Summarize coverage, confidence, and diagnostics.
+6. Write a structured sync report.
 
 ## Package Layout
 
@@ -23,7 +24,7 @@ audio_conform_syncer/
 
 The MVP matcher uses normalized correlation. For each reference window, it searches each source file and keeps the strongest match above the configured threshold.
 
-This is intentionally simple and inspectable. It is not yet a full conform engine, but it gives the project a real sync-engine foundation.
+Each alignment also records a runner-up margin so repeated dialogue, tones, or music beds can be marked as ambiguous or filtered with `--min-score-margin`. This is intentionally simple and inspectable. It is not a full conform engine, but it is a complete local report-first MVP.
 
 ## Data Flow
 
@@ -33,7 +34,9 @@ edited video
   -> reference samples
   -> sliding reference windows
   -> best source alignment per window
+  -> confidence and ambiguity scoring
   -> merged match regions
+  -> coverage and diagnostic summary
   -> JSON report
 ```
 
